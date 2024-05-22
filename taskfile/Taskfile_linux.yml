@@ -1,0 +1,137 @@
+---
+version: 3
+
+silent: true
+
+output: 'interleaved'
+
+vars:
+  # HINT: interpolation
+  VENDOR: '{{ .NORBIX_VENDOR | lower | default "REPLACE" }}'
+  PLATFORM: "replace"
+
+tasks:
+  # HINT: Public Functions
+  ## HINT: Composition
+  compile:all:
+    desc: Compiling binary for all platforms.
+    cmds:
+      -
+        # HINT: closure (syntactic sugar)
+        vars: {PLATFORM: darwin}
+        task: helper:banner
+      -
+        vars: {PLATFORM: darwin}
+        task: helper:compiler
+      -
+        vars: {PLATFORM: linux}
+        task: helper:banner
+      -
+        vars: {PLATFORM: linux}
+        task: helper:compiler
+      -
+        vars: {PLATFORM: windows}
+        task: helper:banner
+      -
+        vars: {PLATFORM: windows}
+        task: helper:compiler
+
+  ## HINT: Single Responsibility
+  compile:darwin:
+    desc: Compiling binary for the {{OS}} platform
+    cmds:
+      - task: helper:banner
+        vars: {PLATFORM: darwin}
+      - task: helper:compiler
+        # HINT: shadowing
+        vars: {PLATFORM: darwin}
+
+  compile:linux:
+    desc: Compiling binary for the {{OS}} platform
+    cmds:
+      - task: helper:banner
+        vars: {PLATFORM: linux}
+      - task: helper:compiler
+        vars: {PLATFORM: linux}
+
+  compile:wintel:
+    desc: Compiling binary for the {{OS}} platform
+    cmds:
+      - task: helper:banner
+        vars: {PLATFORM: windows}
+      - task: helper:compiler
+        vars: {PLATFORM: windows}
+
+  # HINT: Private Functions
+  ## HINT: Single Responsibility
+  helper:banner:
+    cmds:
+      - echo Compiling for {{.PLATFORM | title }} platform
+
+  helper:compiler:
+    cmds:
+      - GOOS={{.PLATFORM}} go build -o ./bin/{{.VENDOR}}-{{.NORBIX_APP_NAME}}-{{.NORBIX_GIT_COMMIT}}-{{.PLATFORM}}.bin ./cmd/main.go
+
+  # HINT: Public Functions (Class Test)
+  ## HINT: Composition
+  test:all:
+    desc: Running entire test suite [static, unit, integration, e2e]
+    cmds:
+      -
+        task: test:helper:static
+      -
+        task: test:helper:unit
+      -
+        task: test:helper:integration
+      -
+        task: test:helper:e2e
+
+  # HINT: Private Functions (Class Test)
+  ## HINT: Single Responsibility
+  test:helper:static:
+    cmds:
+      - echo Running static tests suite...
+      - task: test:helper:static:go
+      - task: test:helper:static:yaml
+      - task: test:helper:static:md
+      - task: test:helper:static:json
+
+  test:helper:static:go:
+    cmds:
+      - echo Running static tests for Go source files...
+      - docker run --rm -v $(shell pwd):/app -v ~/.cache/golangci-lint/${golangci_lint_version}:/root/.cache -w /app golangci/golangci-lint:{{.golangci_lint_version}} golangci-lint run -c golanglint.config.yaml -v
+    vars:
+      golangci_lint_version: v1.52.2
+
+  test:helper:static:yaml:
+    cmds:
+      - echo Running static tests for YAML source files...
+      - docker run --rm -v $(shell pwd):/app -w /app ubuntu:22.04 sh -c "apt-get update ; apt-get -y install pip ; pip install yamllint ; yamllint -c ./yamllint.config ./"
+
+  test:helper:static:md:
+    cmds:
+      - echo Running static tests for Markdown source files...
+      # TODO: solve issues
+      - docker run --rm -v $(shell pwd):/app -w /app ubuntu:22.04 sh -c "apt-get update ; apt-get -y install git rake ; cd /tmp ; git clone https://github.com/markdownlint/markdownlint ; cd markdownlint ; rake install ; cd /app ; mdl *.md"
+
+  test:helper:static:json:
+    cmds:
+      - echo Running static tests for JSON source files...
+      # TODO: solve issues
+      - docker run --rm -v $(shell pwd):/app -w /app alpine sh -c "apk update ; apk add jq ; (find . -type f -name \"*.json\" -exec sh -c 'echo \"Processing {}\"; jq . \"{}\"' \;)"
+
+  test:helper:unit:
+    cmds:
+      - echo Running unit tests suite...
+      - go clean -testcache
+      - go test -v ./...
+
+  test:helper:integration:
+    cmds:
+      # TODO: WIP
+      - echo Running integration tests suite...
+
+  test:helper:e2e:
+    cmds:
+      # TODO: WIP
+      - echo Running end to end tests suite...

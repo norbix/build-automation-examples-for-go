@@ -1,0 +1,31 @@
+---
+run:
+  timeout: 30m
+  skip-files: [^zz_generated.*]
+  tests: false
+issues:
+  max-same-issues: 0
+  exclude-rules:
+    - path: rule_engine\.go
+      linters:
+        - staticcheck
+linters:
+  disable-all: true
+  enable: # please keep this alphabetized
+    # Don't use soon to deprecated[1] linters that lead to false
+    # https://github.com/golangci/golangci-lint/issues/1841
+    # - deadcode
+    # - structcheck
+    # - varcheck
+    - goimports
+    - ineffassign
+    - revive
+    - staticcheck
+    - stylecheck
+    - unused
+    - unconvert # Remove unnecessary type conversions
+linters-settings: # please keep this alphabetized
+  staticcheck:
+    checks:
+      - all
+...

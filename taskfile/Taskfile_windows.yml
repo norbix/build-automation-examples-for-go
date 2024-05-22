@@ -1,0 +1,158 @@
+---
+version: 3
+
+silent: true
+
+output: 'interleaved'
+
+vars:
+  # HINT: interpolation
+  VENDOR: '{{ .NORBIX_VENDOR | lower | default "REPLACE" }}'
+  PLATFORM: "replace"
+
+tasks:
+  # HINT: Public Functions (Class Compile)
+  ## HINT: Composition
+  compile:all:
+    desc: Compiling binary for all platforms.
+    cmds:
+      -
+        # HINT: closure ( syntactic sugar )
+        vars: {PLATFORM: darwin}
+        task: helper:banner
+      -
+        vars: {PLATFORM: darwin}
+        task: helper:compiler
+      -
+        vars: {PLATFORM: linux}
+        task: helper:banner
+      -
+        vars: {PLATFORM: linux}
+        task: helper:compiler
+      -
+        vars: {PLATFORM: windows}
+        task: helper:banner
+      -
+        vars: {PLATFORM: windows}
+        task: helper:compiler
+
+  ## HINT: Single Responsibility
+  compile:darwin:
+    desc: Compiling binary for the {{OS}} platform
+    cmds:
+      - task: helper:banner
+        vars: {PLATFORM: darwin}
+      - task: helper:compiler
+        # HINT: shadowing
+        vars: {PLATFORM: darwin}
+
+  compile:linux:
+    desc: Compiling binary for the {{OS}} platform
+    cmds:
+      - task: helper:banner
+        vars: {PLATFORM: linux}
+      - task: helper:compiler
+        vars: {PLATFORM: linux}
+
+  compile:wintel:
+    desc: Compiling binary for the {{OS}} platform
+    cmds:
+      - task: helper:banner
+        vars: {PLATFORM: windows}
+      - task: helper:compiler
+        vars: {PLATFORM: windows}
+
+  # HINT: Private Functions Shared (Class Helper aka Middleware)
+  ## HINT: Single Responsibility
+  helper:banner:
+    cmds:
+      - echo Compiling for {{.PLATFORM | title }} platform
+
+  helper:compiler:
+    cmds:
+      - GOOS={{.PLATFORM}} go build -o ./bin/{{.VENDOR}}-{{.NORBIX_APP_NAME}}-{{.NORBIX_GIT_COMMIT}}-{{.PLATFORM}}.bin ./cmd/main.go
+
+  # HINT: Public Functions (Class Test)
+  ## HINT: Composition
+  test:all:
+    desc: Running entire test suite [static, unit, integration, e2e]
+    cmds:
+      - task: test:helper:static
+      - task: test:helper:unit
+      - task: test:helper:integration
+      - task: test:helper:e2e
+
+  # HINT: Private Functions (Class Test)
+  ## HINT: Single Responsibility
+  test:helper:static:
+    cmds:
+      - echo Running static tests suite...
+      - task: test:helper:static:go
+      - task: test:helper:static:yaml
+      - task: test:helper:static:md
+      - task: test:helper:static:json
+
+  test:helper:static:go:
+    desc: Running static test suite for Go source files
+    cmds:
+      - echo Running static tests for Go source files...
+      - docker run --rm -v '{{.pwd_prefix}}':/app -v ~/.cache/golangci-lint/${golangci_lint_version}:/root/.cache -w /app golangci/golangci-lint:{{.golangci_lint_version}} golangci-lint run -c .golangci.yml -v
+#     Hint: debug
+#      - docker run -it --rm -v '{{.pwd_prefix}}':/app -v ~/.cache/golangci-lint/${golangci_lint_version}:/root/.cache -w /app golangci/golangci-lint:{{.golangci_lint_version}} bash
+    vars:
+      golangci_lint_version: v1.42.1
+      # NOTE: hack
+      ## TODO: generalize
+      pwd_prefix: '{{.PWD_PREFIX}}'
+
+  test:helper:static:yaml:
+    desc: Running static test suite for YAML source files
+    cmds:
+      - echo Running static tests for YAML source files...
+      - docker run --rm -v '{{.pwd_prefix}}':/app -w /app ubuntu:22.04 sh -c "apt-get update ; apt-get -y install pip ; pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host=files.pythonhosted.org yamllint ; yamllint -c ./yamllint.config ./"
+#      Hint: debug
+#      - docker run -it --rm -v '{{.pwd_prefix}}':/app -w /app ubuntu:22.04 bash
+    vars:
+      # NOTE: hack
+      ## TODO: generalize
+      pwd_prefix: '{{.PWD_PREFIX}}'
+
+  test:helper:static:md:
+    desc: Running static test suite Markdown source files
+    cmds:
+      - echo Running static tests for Markdown source files...
+      # TODO: solve issues
+      - docker run --rm -v '{{.pwd_prefix}}':/app -w /app ubuntu:22.04 sh -c "apt-get update ; apt-get -y install git rake ; cd /tmp ; git clone https://github.com/markdownlint/markdownlint ; cd markdownlint ; rake install ; cd /app ; mdl *.md"
+    vars:
+      # NOTE: hack
+      ## TODO: generalize
+      pwd_prefix: '{{.PWD_PREFIX}}'
+
+  test:helper:static:json:
+    desc: Running static test suite JSON source files
+    cmds:
+      - echo Running static tests for JSON source files...
+      # TODO: solve issues
+      - docker run --rm -v '{{.pwd_prefix}}':/app -w /app alpine sh -c "apk update ; apk add jq ; (find . -type f -name \"*.json\" -exec sh -c 'echo \"Processing {}\"; jq . \"{}\"' \;)"
+    vars:
+      # NOTE: hack
+      ## TODO: generalize
+      pwd_prefix: '{{.PWD_PREFIX}}'
+
+  test:helper:unit:
+    desc: Running unit test suite
+    cmds:
+      - echo Running unit tests suite...
+      - go clean -testcache
+      - go test -v ./...
+      - echo true
+
+  test:helper:integration:
+    cmds:
+      # TODO: WIP
+      - echo Running integration tests suite...
+
+  test:helper:e2e:
+    cmds:
+      # TODO: WIP
+      - echo Running end to end tests suite...

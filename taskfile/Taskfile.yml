@@ -1,0 +1,42 @@
+---
+# HINT: (API docs) https://taskfile.dev
+# HINT: (Pragmatic use cases) https://tsh.io/blog/taskfile-or-gnu-make-for-automation/
+
+version: 3
+
+includes:
+  build: ./Taskfile_{{OS}}.yml
+
+silent: true
+
+output: 'interleaved'
+
+# NOTE: contract init via env vars
+env:
+  NORBIX_ENV: dev
+  NORBIX_VENDOR: NORBIX
+  NORBIX_APP_NAME: '{{ .APP_NAME | default "golang-example-backend-app" }}'
+  NORBIX_GIT_COMMIT:
+    # NOTE: git describe
+    sh: git log -n 1 --format=%h
+
+# NOTE: contract init via dot env files
+dotenv: ['.env', '{{.NORBIX_ENV}}/.env.', '{{.HOME}}/.env']
+
+tasks:
+  default:
+    label: 'default'
+    desc: 'List all commands defined.'
+    summary: |
+      Orchestrates execution of other functions/tasks implemented per OS platform.
+
+      It will provision a component/solution or execute a workflow in an automatic fashion.
+    cmds:
+      - 'echo =='
+      - 'echo Tasks available 4 this {{.KUBE_TYPE}} KUBE.'
+      - 'echo'
+      - 'task -l'
+    # Hint: signature
+    vars:
+      KUBE_TYPE: 'infra'
+...
