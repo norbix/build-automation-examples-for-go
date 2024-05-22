@@ -1,0 +1,26 @@
+# Exclude build artifacts
+*.log
+*.tmp
+
+# Exclude version control files
+.git
+.gitignore
+
+# Exclude local development files
+node_modules
+npm-debug.log
+
+# Exclude temporary files and directories
+.tmp
+.temp
+
+# Exclude IDE files
+.idea
+.vscode
+
+# Exclude build artifacts
+bin/
+
+# Exclude local development files
+hack/
+*.out

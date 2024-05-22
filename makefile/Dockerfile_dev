@@ -1,0 +1,69 @@
+# Hint: Contract of the Dockerfile_dev and Dockerfile is same, but the implementation is different.
+# Stage 1: Build Container (CI Container for Builde and Tests Unit, Tests Integration)
+FROM golang:1.22-bullseye AS builder
+
+ARG NETRC_MACHINE
+ARG NETRC_USER
+ARG NETRC_PASSWORD
+
+ENV GOPATH /go
+ENV GOCACHE /go/caches/go-build
+ENV GIT_SSL_NO_VERIFY=1
+ENV GOPRIVATE='github.com/*'
+ENV GOPROXY='https://proxy.golang.org,direct'
+
+# Hint: FHS (Filesystem Hierarchy Structure) for Go runtime
+# $GOPATH/
+#  ├── bin/
+#  ├── pkg/
+#  └── src/
+#      └── your_project/
+#          └── your_code.go
+
+WORKDIR /go/src
+
+# Hack: Build CA-chain for local development
+RUN openssl s_client -showcerts -connect proxy.golang.org:443 </dev/null 2>/dev/null|openssl x509 -outform PEM >  /usr/local/share/ca-certificates/proxy.golang.crt
+
+## Update certificates
+RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
+
+# Install grpc-health-probe
+RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.25
+
+WORKDIR /go/src
+
+# Authenticate to the private repository
+RUN echo "machine $NETRC_MACHINE login $NETRC_USER password $NETRC_PASSWORD" > /root/.netrc
+
+COPY go.* ./
+RUN go mod download
+
+COPY . app
+
+WORKDIR /go/src/app
+
+# build the source
+RUN go build -o /go/bin/golang-example-backend-app ./cmd/main.go
+
+# Stage 2: Run Container (Production Environment Container without Go SDK)
+FROM docker.io/library/debian:unstable-slim AS runtime
+
+# set working directory
+WORKDIR /go/bin
+
+COPY --from=builder /go/bin/golang-example-backend-app /go/bin
+COPY --from=builder /go/src/app/startup.sh /go/bin
+COPY --from=builder /go/bin/grpc-health-probe /bin/grpc_health_probe
+
+RUN useradd -u 1000 -m -s /bin/bash service
+USER 1000
+
+# Hint: Documents port only, doesn't publish the port (TCP)
+## Note: REST API
+EXPOSE 8000
+## Note: gRPC API
+EXPOSE 3000
+
+# run the binary
+ENTRYPOINT [ "/go/bin/startup.sh" ]
